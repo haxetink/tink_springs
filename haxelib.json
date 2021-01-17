@@ -1,0 +1,16 @@
+{
+  "name": "tink_springs",
+  "license": "MIT",
+  "tags": [
+    "tink",
+    "animation"
+  ],
+  "classPath": "src",
+  "contributors": [
+    "back2dos"
+  ],
+  "releasenote": "initial release",
+  "version": "0.0.0",
+  "url": "https://github.com/haxetink/tink_springs/",
+  "dependencies": {}
+}

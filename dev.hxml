@@ -1,0 +1,7 @@
+# -lib travix
+-lib tink_springs
+-cp tests
+-main Playground
+-js bin/js/tests.js
+# tests.hxml
+# --interp
