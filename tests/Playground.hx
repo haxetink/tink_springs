@@ -25,7 +25,7 @@ class Playground {
         h = window.innerHeight;
 
     var springs = [for (i in 0...1000) {
-      var x = new Spring(Math.random() * w), 
+      var x = new Spring(Math.random() * w),
           y = new Spring(Math.random() * h);
       var transform = Observable.auto(() -> 'translate(${x.value}px, ${y.value}px)');
       { x: x, y: y, transform: transform };
@@ -36,11 +36,11 @@ class Playground {
       var size = Math.random() * 10 + 5;
 
       ball.style.cssText = '
-        background: #00${StringTools.hex(Std.random(0x100), 2)}00; 
-        width: ${size}px; 
-        height: ${size}px; 
-        border-radius: 100px; 
-        position: absolute; 
+        background: #00${StringTools.hex(Std.random(0x100), 2)}00;
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 100px;
+        position: absolute;
         margin-top: ${-size / 2}px;
         margin-left: ${-size /2 }px
       ';
@@ -68,7 +68,7 @@ class Playground {
       if (e.buttons > 0) collect(e);
     }
     window.onmouseup = disperse;
-    
+
     window.onresize = () -> {
       w = window.innerWidth;
       h = window.innerHeight;
