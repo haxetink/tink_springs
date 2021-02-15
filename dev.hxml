@@ -1,5 +1,6 @@
 # -lib travix
 -lib tink_springs
+-lib tink_geom2
 -cp tests
 -main Playground
 -js bin/js/tests.js

@@ -1,10 +1,12 @@
 package tink.springs;
 
-import tink.state.*;
-import tink.state.internal.*;
 import tink.state.internal.Invalidatable;
+import tink.state.internal.*;
+import tink.state.*;
 
-@:forward(set)
+using tink.CoreApi;
+
+@:forward(set, startDrag, constrain)
 abstract Spring(SpringObject) to Observable<Float> {
 
   public var value(get, never):Float;
@@ -23,7 +25,7 @@ abstract Spring(SpringObject) to Observable<Float> {
 }
 
 class SpringObject implements Runner.Runnable extends Invalidator implements ObservableObject<Float> {
-  
+
   @:unconfigurable var velocity:Float = 0;
   @:unconfigurable var finished = false;
 
@@ -54,7 +56,22 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
   public function new(config:SpringConfig, ?runner) {
     super();
     compare = (a, b) -> Math.abs(a - b) <= precision;
-    this.position = 
+
+    this.min = Observable.auto(() -> getMin.value());
+    this.max = Observable.auto(() -> getMax.value());
+
+    var watchBounds = null;
+    var onBoundsChange:Callback<Float> = _ -> {
+      this.wakeup();
+      if (this.drag == null) {
+        position = constrain(position, (_, t) -> t);
+      }
+    }
+
+    list.onfill = () -> watchBounds = min.bind(onBoundsChange, Scheduler.direct).join(max.bind(onBoundsChange, Scheduler.direct));
+    list.ondrain = () -> watchBounds.cancel();
+
+    this.position =
       switch config.from {
         case Math.isNaN(_) => true: config.to;
         case v: v;
@@ -62,8 +79,9 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
 
     this.velocity = config.velocity;
     this.config = new State(config);
-    config.applyTo(this);
-    
+
+    apply(config);
+
     this.runner = switch runner {
       case null: Runner.DEFAULT;
       case v: v;
@@ -72,50 +90,179 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
     this.runner.add(this);
   }
 
-  function advance(dt:Float) {
-    if (finished)
-      return true;
-    var isMoving = false;
+  function apply(config:SpringConfig) {
+    config.applyTo(this);
+  }
 
-    final restVelocity:Float = precision / 10;
-    
-    for (i in 0...Math.ceil(dt / stepSize)) {
-      isMoving = Math.abs(velocity) > restVelocity;
+  function advance(dt:Float)
+    return switch this.drag {
+      case null:
+        if (finished)
+          return true;
+        var isMoving = false;
 
-      var delta = position - to;
-      
-      if (!isMoving) {
-        finished = Math.abs(delta) <= precision;
-        if (finished) 
-          break;
-      }
+        final restVelocity:Float = precision / 10;
 
-      var springForce = -tension * 0.000001 * delta;
-      var dampingForce = -friction * 0.001 * velocity;
-      var acceleration = (springForce + dampingForce) / mass;
+        for (i in 0...Math.ceil(dt / stepSize)) {
+          isMoving = Math.abs(velocity) > restVelocity;
 
-      velocity += acceleration * stepSize;
-      position += velocity * stepSize;
+          var delta = position - to;
+
+          if (!isMoving) {
+            finished = Math.abs(delta) <= precision;
+            if (finished)
+              break;
+          }
+
+          var springForce = if (Math.isNaN(delta)) .0 else -tension * 0.000001 * delta;
+          var dampingForce = -friction * 0.001 * velocity;
+
+          if (Math.isNaN(delta)) {
+            dampingForce /= 2;
+            this.to = switch constrain(position, (_, t) -> t) {
+              case _ == position => true: Math.NaN;
+              case v: v;
+            }
+          }
+
+          var acceleration = (springForce + dampingForce) / mass;
+
+          velocity += acceleration * stepSize;
+          position += velocity * stepSize;
+        }
+
+        fire();
+
+        return finished;
+      case drag:
+        if (position != drag.pos) {
+          position = drag.pos;
+          fire();
+        }
+        false;
     }
 
-    fire();
+  @:unconfigurable var drag:Null<Drag>;
 
-    return finished;
+  public function startDrag(delta:Signal<Float>):CallbackLink {
+    switch this.drag {
+      case null:
+      case v: v.stop();
+    }
+
+    var drag = new Drag(this.position, delta, constrain);
+    this.drag = drag;
+
+    wakeup();
+
+    return () -> if (this.drag == drag) {
+      this.velocity = drag.stop();
+      this.to = Math.NaN;
+      this.drag = null;
+    }
+
   }
 
   public function set(config:SpringConfig) {
 
-    config.applyTo(this);
+    apply(config);
+
     this.config.set(config);
 
     if (config.immediate && !Math.isNaN(config.to)) {
-      position = config.to;
+      position = constrain(config.to, (_, t) -> t);
       velocity = 0;
     }
 
+    wakeup();
+  }
+
+  static function noMin()
+    return Math.NEGATIVE_INFINITY;
+
+  static function noMax()
+    return Math.POSITIVE_INFINITY;
+
+  final getMin = new State(noMin);
+  final getMax = new State(noMax);
+  final min:Observable<Float>;
+  final max:Observable<Float>;
+
+  public function constrain(desired:Float, compute:(desired:Float, constraint:Float)->Float) {
+
+    final min = min.value,
+          max = max.value;
+
+    return
+      if (max < min)
+        compute(desired, (min + max) / 2);
+      else if (desired < min)
+        compute(desired, min);
+      else if (desired > max)
+        compute(desired, max);
+      else
+        desired;
+  }
+
+  inline function wakeup()
     if (finished) {
       finished = false;
       runner.add(this);
     }
+}
+
+private class Drag {
+
+  public var pos(default, null):Float;
+
+  var speed:Float = 0;
+
+  final link:CallbackLink;
+
+  static inline function now()
+    return Date.now().getTime();
+
+  var lastTime:Float;
+
+  public function new(pos:Float, delta:Signal<Float>, constrain) {
+    this.pos = pos;
+
+    lastTime = now();
+
+    this.link = delta.handle(delta -> {
+
+      pos += delta;
+
+      updateSpeed(delta);
+
+      this.pos = constrain(pos, rubber);
+
+    });
+  }
+
+  function updateSpeed(delta:Float) {
+    final now = now();
+    final deltaT = now - lastTime;
+
+    lastTime = now;
+
+    speed = (delta + weight * speed) / (deltaT + weight);
+  }
+
+  static inline var weight = 50.0;
+
+  function rubber(desired:Float, constraint:Float) {
+    var delta = Math.abs(desired - constraint),
+        sign = if (desired > constraint) 1 else -1;
+
+    var effective = sign * Math.pow(delta + 1, .65);//TODO: lot of magic numbers here ...
+
+    return constraint + effective;
+  }
+
+  public function stop():Float {
+    link.cancel();
+    updateSpeed(.0);
+    return speed;
   }
 }

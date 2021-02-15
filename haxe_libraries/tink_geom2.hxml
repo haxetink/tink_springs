@@ -1,0 +1,4 @@
+# @install: lix --silent download "gh://github.com/haxetink/tink_geom2#b59ee94de9acdf7e24d9c0699c1574e8c6d8fbd0" into tink_geom2/0.2.2/github/b59ee94de9acdf7e24d9c0699c1574e8c6d8fbd0
+-lib tink_core
+-cp ${HAXE_LIBCACHE}/tink_geom2/0.2.2/github/b59ee94de9acdf7e24d9c0699c1574e8c6d8fbd0/src
+-D tink_geom2=0.2.2

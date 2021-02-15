@@ -17,7 +17,7 @@ class SpringConfig {
           pos: f.pos,
           access: [APublic, AFinal],
           kind: FVar(
-            f.type.toComplexType(), 
+            f.type.toComplexType(),
             if (f.expr() == null) null else macro Math.NaN
           )
         });
@@ -33,8 +33,7 @@ class SpringConfig {
 
     return ret.concat(
       (macro class {
-        @:allow(tink.springs)
-        function applyTo(spring:Spring.SpringObject)
+        inline function setNumbers(spring:Spring.SpringObject)
           $b{apply}
       }).fields
     );
