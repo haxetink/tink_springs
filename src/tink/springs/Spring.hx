@@ -110,8 +110,10 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
 
           if (!isMoving) {
             finished = Math.abs(delta) <= precision;
-            if (finished)
+            if (finished) {
+              position = to;
               break;
+            }
           }
 
           var springForce = if (Math.isNaN(delta)) .0 else -tension * 0.000001 * delta;
