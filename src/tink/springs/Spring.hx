@@ -157,6 +157,7 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
 
     return () -> if (this.drag == drag) {
       this.velocity = drag.stop();
+      this.position = drag.pos;
       this.to = Math.NaN;
       this.drag = null;
     }
