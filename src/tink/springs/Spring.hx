@@ -150,7 +150,7 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
       case v: v.stop();
     }
 
-    var drag = new Drag(this.position, delta, constrain);
+    var drag = new Drag(this.position, delta, (v) -> constrain(v, dragConstrain));
     this.drag = drag;
 
     wakeup();
@@ -187,6 +187,17 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
   final getMax = new State(noMax);
   final min:Observable<Float>;
   final max:Observable<Float>;
+
+  static function rubber(desired:Float, constraint:Float) {
+    var delta = Math.abs(desired - constraint),
+        sign = if (desired > constraint) 1 else -1;
+
+    var effective = sign * Math.pow(delta + 1, .85);//TODO: lot of magic numbers here ...
+
+    return constraint + effective;
+  }
+
+  var dragConstrain:(desired:Float, constrained:Float)->Float = rubber;
 
   public function constrain(desired:Float, compute:(desired:Float, constraint:Float)->Float) {
 
@@ -235,7 +246,7 @@ private class Drag {
 
       updateSpeed(delta);
 
-      this.pos = constrain(pos, rubber);
+      this.pos = constrain(pos);
 
     });
   }
@@ -250,15 +261,6 @@ private class Drag {
   }
 
   static inline var weight = 50.0;
-
-  function rubber(desired:Float, constraint:Float) {
-    var delta = Math.abs(desired - constraint),
-        sign = if (desired > constraint) 1 else -1;
-
-    var effective = sign * Math.pow(delta + 1, .65);//TODO: lot of magic numbers here ...
-
-    return constraint + effective;
-  }
 
   public function stop():Float {
     link.cancel();
