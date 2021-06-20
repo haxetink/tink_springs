@@ -6,7 +6,7 @@ import tink.state.*;
 
 using tink.CoreApi;
 
-@:forward(set, startDrag, constrain)
+@:forward(set, startDrag, constrain, finished, velocity)
 abstract Spring(SpringObject) to Observable<Float> {
 
   public var value(get, never):Float;
@@ -26,8 +26,8 @@ abstract Spring(SpringObject) to Observable<Float> {
 
 class SpringObject implements Runner.Runnable extends Invalidator implements ObservableObject<Float> {
 
-  @:unconfigurable var velocity:Float = 0;
-  @:unconfigurable var finished = false;
+  @:unconfigurable public var velocity(default, null):Float = 0;
+  @:unconfigurable public var finished(default, null) = false;
 
   var precision:Float = .005;
   final compare:Comparator<Float>;
