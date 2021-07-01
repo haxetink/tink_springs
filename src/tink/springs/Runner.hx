@@ -60,7 +60,6 @@ class Runner {
           run();
           js.Browser.window.requestAnimationFrame(tick);
         }
-        run();
         js.Browser.window.requestAnimationFrame(tick);
         return () -> running = false;
       }
