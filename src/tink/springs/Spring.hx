@@ -1,6 +1,5 @@
 package tink.springs;
 
-import tink.state.internal.Invalidatable;
 import tink.state.internal.*;
 import tink.state.*;
 
@@ -24,7 +23,7 @@ abstract Spring(SpringObject) to Observable<Float> {
     return this;
 }
 
-class SpringObject implements Runner.Runnable extends Invalidator implements ObservableObject<Float> {
+class SpringObject implements Runner.Runnable extends Dispatcher implements ObservableObject<Float> {
 
   @:unconfigurable public var velocity(default, null):Float = 0;
   @:unconfigurable public var finished(default, null) = false;
@@ -54,13 +53,13 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
   public final runner:Runner;
 
   public function new(config:SpringConfig, ?runner) {
-    super();
-    compare = (a, b) -> Math.abs(a - b) <= precision;
+    var watchBounds = null;
 
     this.min = Observable.auto(() -> getMin.value());
     this.max = Observable.auto(() -> getMax.value());
 
-    var watchBounds = null;
+    compare = (a, b) -> Math.abs(a - b) <= precision;
+
     var onBoundsChange:Callback<Float> = _ -> {
       this.wakeup();
       if (this.drag == null) {
@@ -68,8 +67,10 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
       }
     }
 
-    list.onfill = () -> watchBounds = min.bind(onBoundsChange, Scheduler.direct).join(max.bind(onBoundsChange, Scheduler.direct));
-    list.ondrain = () -> watchBounds.cancel();
+    super(active ->
+      if (active) watchBounds = min.bind(onBoundsChange, Scheduler.direct).join(max.bind(onBoundsChange, Scheduler.direct))
+      else watchBounds.cancel()
+    );
 
     this.position =
       switch config.from {
@@ -133,13 +134,13 @@ class SpringObject implements Runner.Runnable extends Invalidator implements Obs
           position += velocity * stepSize;
         }
 
-        fire();
+        fire(this);
 
         return finished;
       case drag:
         if (position != drag.pos) {
           position = drag.pos;
-          fire();
+          fire(this);
         }
         false;
     }
